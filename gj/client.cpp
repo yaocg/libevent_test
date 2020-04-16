@@ -19,96 +19,96 @@ void event_cb(struct bufferevent *bev, short event, void *arg);
 
 int main(int argc, char** argv)
 {
-    if( argc < 3 )
-    {
-        //两个参数依次是服务器端的IP地址、端口号
-        printf("please input 2 parameter\n");
-        return -1;
-    }
+  if( argc < 3 )
+  {
+    //两个参数依次是服务器端的IP地址、端口号
+    printf("please input 2 parameter\n");
+    return -1;
+  }
 
-    //创建事件管理器
-    struct event_base *base = event_base_new();
+  //创建事件管理器
+  struct event_base *base = event_base_new();
 
-    //创建bufferevent
-    struct bufferevent* bev = bufferevent_socket_new(base, -1,
-                                                     BEV_OPT_CLOSE_ON_FREE);
+  //创建bufferevent
+  struct bufferevent* bev = bufferevent_socket_new(base, -1,
+      BEV_OPT_CLOSE_ON_FREE);
 
-    //监听终端输入事件
-    struct event* ev_cmd = event_new(base, STDIN_FILENO,
-                                     EV_READ | EV_PERSIST,
-                                     cmd_msg_cb, (void*)bev);
+  //监听终端输入事件
+  struct event* ev_cmd = event_new(base, STDIN_FILENO,
+      EV_READ | EV_PERSIST,
+      cmd_msg_cb, (void*)bev);
 
-    //注册事件
-    event_add(ev_cmd, NULL);
+  //注册事件
+  event_add(ev_cmd, NULL);
 
-    struct sockaddr_in server_addr;
+  struct sockaddr_in server_addr;
 
-    memset(&server_addr, 0, sizeof(server_addr) );
+  memset(&server_addr, 0, sizeof(server_addr) );
 
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(atoi(argv[2]));
-    inet_aton(argv[1], &server_addr.sin_addr);
+  server_addr.sin_family = AF_INET;
+  server_addr.sin_port = htons(atoi(argv[2]));
+  inet_aton(argv[1], &server_addr.sin_addr);
 
-    //连接服务器并绑定bufferevent
-    bufferevent_socket_connect(bev, (struct sockaddr *)&server_addr, sizeof(server_addr));
+  //连接服务器并绑定bufferevent
+  bufferevent_socket_connect(bev, (struct sockaddr *)&server_addr, sizeof(server_addr));
 
-    //设置回调函数
-    bufferevent_setcb(bev, server_msg_cb, NULL, event_cb, (void*)ev_cmd);
-    
-    //启动相应事件监听
-    bufferevent_enable(bev, EV_READ | EV_PERSIST);
+  //设置回调函数
+  bufferevent_setcb(bev, server_msg_cb, NULL, event_cb, (void*)ev_cmd);
 
-    //循环监听事件
-    event_base_dispatch(base);
+  //启动相应事件监听
+  bufferevent_enable(bev, EV_READ | EV_PERSIST);
 
-    printf("finished \n");
-    return 0;
+  //循环监听事件
+  event_base_dispatch(base);
+
+  printf("finished \n");
+  return 0;
 }
 
 void cmd_msg_cb(int fd, short events, void* arg)
 {
-    char msg[1024];
+  char msg[1024];
 
-    int ret = read(fd, msg, sizeof(msg));
-    if( ret < 0 )
-    {
-        perror("read fail ");
-        exit(1);
-    }
+  int ret = read(fd, msg, sizeof(msg));
+  if( ret < 0 )
+  {
+    perror("read fail ");
+    exit(1);
+  }
 
-    struct bufferevent* bev = (struct bufferevent*)arg;
+  struct bufferevent* bev = (struct bufferevent*)arg;
 
-    //把终端的消息发送给服务器端
-    bufferevent_write(bev, msg, ret);
+  //把终端的消息发送给服务器端
+  bufferevent_write(bev, msg, ret);
 }
 
 void server_msg_cb(struct bufferevent* bev, void* arg)
 {
-    char msg[1024];
+  char msg[1024];
 
-    size_t len = bufferevent_read(bev, msg, sizeof(msg));
-    msg[len] = '\0';
+  size_t len = bufferevent_read(bev, msg, sizeof(msg));
+  msg[len] = '\0';
 
-    printf("recv %s from server\n", msg);
+  printf("recv %s from server\n", msg);
 }
 
 
 void event_cb(struct bufferevent *bev, short event, void *arg)
 {
 
-    if (event & BEV_EVENT_EOF)
-        printf("connection closed\n");
-    else if (event & BEV_EVENT_ERROR)
-        printf("some other error\n");
-    else if( event & BEV_EVENT_CONNECTED)
-    {
-        printf("the client has connected to server\n");
-        return ;
-    }
+  if (event & BEV_EVENT_EOF)
+    printf("connection closed\n");
+  else if (event & BEV_EVENT_ERROR)
+    printf("some other error\n");
+  else if( event & BEV_EVENT_CONNECTED)
+  {
+    printf("the client has connected to server\n");
+    return ;
+  }
 
-    //这将自动close套接字和free读写缓冲区
-    bufferevent_free(bev);
+  //这将自动close套接字和free读写缓冲区
+  bufferevent_free(bev);
 
-    struct event *ev = (struct event*)arg;
-    event_free(ev);
+  struct event *ev = (struct event*)arg;
+  event_free(ev);
 }
